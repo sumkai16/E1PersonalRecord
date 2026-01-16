@@ -13,15 +13,17 @@ function db(): PDO
     static $pdo = null;
     if ($pdo instanceof PDO) return $pdo;
 
-    $host = 'localhost';
-    $dbName = 'e1_personal_record_db';
-    $user = 'root';
-    $pass = '';
-    $charset = 'utf8mb4';
+    $config = [
+        'host' => 'localhost',
+        'dbName' => 'e1_personal_record_db',
+        'user' => 'root',
+        'pass' => '',
+        'charset' => 'utf8mb4',
+    ];
 
-    $dsn = "mysql:host={$host};dbname={$dbName};charset={$charset}";
+    $dsn = 'mysql:host=' . $config['host'] . ';dbname=' . $config['dbName'] . ';charset=' . $config['charset'];
 
-    $pdo = new PDO($dsn, $user, $pass, [
+    $pdo = new PDO($dsn, $config['user'], $config['pass'], [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
         PDO::ATTR_EMULATE_PREPARES => false,

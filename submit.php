@@ -5,6 +5,57 @@ declare(strict_types=1);
 require_once __DIR__ . '/validation.php';
 require_once __DIR__ . '/db.php';
 
+function post_string_submit(array $post, string $key): string
+{
+    return trim_string($post[$key] ?? '');
+}
+
+function empty_string_to_null(string $value): ?string
+{
+    $v = trim_string($value);
+    return $v === '' ? null : $v;
+}
+
+function datetime_local_to_mysql(string $value): ?string
+{
+    $v = trim_string($value);
+    return $v === '' ? null : str_replace('T', ' ', $v);
+}
+
+function render_html_error_page(int $statusCode, string $title, string $message, ?string $debugMessage = null): void
+{
+    http_response_code($statusCode);
+
+    echo '<!DOCTYPE html>';
+    echo '<html lang="en">';
+    echo '<head>';
+    echo '<meta charset="UTF-8">';
+    echo '<meta name="viewport" content="width=device-width, initial-scale=1.0">';
+    echo '<title>' . htmlspecialchars($title) . '</title>';
+    echo '<style>';
+    echo 'body{font-family:Arial,sans-serif;background:#f5f6f8;color:#1f2937;padding:24px;}';
+    echo '.card{max-width:900px;margin:0 auto;background:#fff;border:1px solid #dcdfe4;border-radius:6px;padding:16px;}';
+    echo '.title{font-weight:700;margin-bottom:10px;}';
+    echo '.btn{display:inline-block;margin-top:12px;background:#2563eb;color:#fff;padding:10px 14px;border-radius:6px;text-decoration:none;font-weight:700;}';
+    echo '</style>';
+    echo '</head>';
+    echo '<body>';
+    echo '<div class="card">';
+    echo '<div class="title">' . htmlspecialchars($title) . '</div>';
+    echo '<div>' . htmlspecialchars($message) . '</div>';
+    if ($debugMessage !== null && $debugMessage !== '') {
+        echo '<div style="margin-top:10px;background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:6px;padding:10px 12px;">';
+        echo '<div style="font-weight:700;margin-bottom:6px;">Debug (local only)</div>';
+        echo '<div>' . htmlspecialchars($debugMessage) . '</div>';
+        echo '</div>';
+    }
+    echo '<a class="btn" href="index.php">Back to form</a>';
+    echo '</div>';
+    echo '</body>';
+    echo '</html>';
+    exit;
+}
+
 function has_any_value(array $values): bool
 {
     for ($i = 0; $i < count($values); $i++) {
@@ -40,9 +91,7 @@ function save_uploaded_file(string $fieldName): ?string
 }
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    http_response_code(405);
-    echo 'Method Not Allowed';
-    exit;
+    render_html_error_page(405, 'Method Not Allowed', 'Method Not Allowed');
 }
 
 $result = validate_e1_form($_POST);
@@ -131,14 +180,14 @@ try {
         ':place_of_birth' => $data['place_of_birth'],
         ':mobile_number' => $data['mobile_number'],
         ':email' => $data['email'],
-        ':religion' => $data['religion'] !== '' ? $data['religion'] : null,
-        ':telephone_number' => $data['telephone_number'] !== '' ? $data['telephone_number'] : null,
-        ':father_last_name' => $data['father_last_name'] !== '' ? $data['father_last_name'] : null,
-        ':father_first_name' => $data['father_first_name'] !== '' ? $data['father_first_name'] : null,
-        ':father_middle_name' => $data['father_middle_name'] !== '' ? $data['father_middle_name'] : null,
-        ':mother_last_name' => $data['mother_last_name'] !== '' ? $data['mother_last_name'] : null,
-        ':mother_first_name' => $data['mother_first_name'] !== '' ? $data['mother_first_name'] : null,
-        ':mother_middle_name' => $data['mother_middle_name'] !== '' ? $data['mother_middle_name'] : null,
+        ':religion' => empty_string_to_null($data['religion']),
+        ':telephone_number' => empty_string_to_null($data['telephone_number']),
+        ':father_last_name' => empty_string_to_null($data['father_last_name']),
+        ':father_first_name' => empty_string_to_null($data['father_first_name']),
+        ':father_middle_name' => empty_string_to_null($data['father_middle_name']),
+        ':mother_last_name' => empty_string_to_null($data['mother_last_name']),
+        ':mother_first_name' => empty_string_to_null($data['mother_first_name']),
+        ':mother_middle_name' => empty_string_to_null($data['mother_middle_name']),
         ':same_as_home_address' => $data['same_as_home_address'] ? 1 : 0,
     ]);
 
@@ -151,15 +200,15 @@ try {
     $homeStmt->execute([
         ':person_id' => $personId,
         ':address_line' => $data['home_address'],
-        ':zip_code' => $data['zip_code'] !== '' ? $data['zip_code'] : null,
+        ':zip_code' => empty_string_to_null($data['zip_code']),
     ]);
 
     // Part 2 - spouse
-    $spouseLast = trim_string($_POST['spouse_last_name'] ?? '');
-    $spouseFirst = trim_string($_POST['spouse_first_name'] ?? '');
-    $spouseMiddle = trim_string($_POST['spouse_middle_name'] ?? '');
-    $spouseSuffix = trim_string($_POST['spouse_suffix'] ?? '');
-    $spouseBirth = trim_string($_POST['spouse_birth'] ?? '');
+    $spouseLast = post_string_submit($_POST, 'spouse_last_name');
+    $spouseFirst = post_string_submit($_POST, 'spouse_first_name');
+    $spouseMiddle = post_string_submit($_POST, 'spouse_middle_name');
+    $spouseSuffix = post_string_submit($_POST, 'spouse_suffix');
+    $spouseBirth = post_string_submit($_POST, 'spouse_birth');
 
     if (has_any_value([$spouseLast, $spouseFirst, $spouseMiddle, $spouseSuffix, $spouseBirth])) {
         $depStmt = $pdo->prepare(
@@ -171,9 +220,9 @@ try {
             ':dependent_type' => 'spouse',
             ':last_name' => $spouseLast !== '' ? $spouseLast : '-',
             ':first_name' => $spouseFirst !== '' ? $spouseFirst : '-',
-            ':middle_name' => $spouseMiddle !== '' ? $spouseMiddle : null,
-            ':suffix' => $spouseSuffix !== '' ? $spouseSuffix : null,
-            ':date_of_birth' => $spouseBirth !== '' ? $spouseBirth : null,
+            ':middle_name' => empty_string_to_null($spouseMiddle),
+            ':suffix' => empty_string_to_null($spouseSuffix),
+            ':date_of_birth' => empty_string_to_null($spouseBirth),
             ':relationship' => null,
         ]);
     }
@@ -194,11 +243,11 @@ try {
              VALUES (:person_id, :dependent_type, :last_name, :first_name, :middle_name, :suffix, :date_of_birth, :relationship)'
         );
         foreach ($childIndices as $i) {
-            $last = trim_string($_POST['child_' . $i . '_last_name'] ?? '');
-            $first = trim_string($_POST['child_' . $i . '_first_name'] ?? '');
-            $middle = trim_string($_POST['child_' . $i . '_middle_name'] ?? '');
-            $suffix = trim_string($_POST['child_' . $i . '_suffix'] ?? '');
-            $birth = trim_string($_POST['child_' . $i . '_birth'] ?? '');
+            $last = post_string_submit($_POST, 'child_' . $i . '_last_name');
+            $first = post_string_submit($_POST, 'child_' . $i . '_first_name');
+            $middle = post_string_submit($_POST, 'child_' . $i . '_middle_name');
+            $suffix = post_string_submit($_POST, 'child_' . $i . '_suffix');
+            $birth = post_string_submit($_POST, 'child_' . $i . '_birth');
 
             if (!has_any_value([$last, $first, $middle, $suffix, $birth])) continue;
 
@@ -207,9 +256,9 @@ try {
                 ':dependent_type' => 'child',
                 ':last_name' => $last !== '' ? $last : '-',
                 ':first_name' => $first !== '' ? $first : '-',
-                ':middle_name' => $middle !== '' ? $middle : null,
-                ':suffix' => $suffix !== '' ? $suffix : null,
-                ':date_of_birth' => $birth !== '' ? $birth : null,
+                ':middle_name' => empty_string_to_null($middle),
+                ':suffix' => empty_string_to_null($suffix),
+                ':date_of_birth' => empty_string_to_null($birth),
                 ':relationship' => null,
             ]);
         }
@@ -231,12 +280,12 @@ try {
              VALUES (:person_id, :dependent_type, :last_name, :first_name, :middle_name, :suffix, :date_of_birth, :relationship)'
         );
         foreach ($otherIndices as $i) {
-            $last = trim_string($_POST['other_' . $i . '_last_name'] ?? '');
-            $first = trim_string($_POST['other_' . $i . '_first_name'] ?? '');
-            $middle = trim_string($_POST['other_' . $i . '_middle_name'] ?? '');
-            $suffix = trim_string($_POST['other_' . $i . '_suffix'] ?? '');
-            $relationship = trim_string($_POST['other_' . $i . '_relationship'] ?? '');
-            $birth = trim_string($_POST['other_' . $i . '_birth'] ?? '');
+            $last = post_string_submit($_POST, 'other_' . $i . '_last_name');
+            $first = post_string_submit($_POST, 'other_' . $i . '_first_name');
+            $middle = post_string_submit($_POST, 'other_' . $i . '_middle_name');
+            $suffix = post_string_submit($_POST, 'other_' . $i . '_suffix');
+            $relationship = post_string_submit($_POST, 'other_' . $i . '_relationship');
+            $birth = post_string_submit($_POST, 'other_' . $i . '_birth');
 
             if (!has_any_value([$last, $first, $middle, $suffix, $relationship, $birth])) continue;
 
@@ -245,18 +294,18 @@ try {
                 ':dependent_type' => 'other',
                 ':last_name' => $last !== '' ? $last : '-',
                 ':first_name' => $first !== '' ? $first : '-',
-                ':middle_name' => $middle !== '' ? $middle : null,
-                ':suffix' => $suffix !== '' ? $suffix : null,
-                ':date_of_birth' => $birth !== '' ? $birth : null,
-                ':relationship' => $relationship !== '' ? $relationship : null,
+                ':middle_name' => empty_string_to_null($middle),
+                ':suffix' => empty_string_to_null($suffix),
+                ':date_of_birth' => empty_string_to_null($birth),
+                ':relationship' => empty_string_to_null($relationship),
             ]);
         }
     }
 
     // Part 3 - SE
-    $seProfession = trim_string($_POST['se_profession_business'] ?? '');
-    $seYearStarted = trim_string($_POST['se_year_started'] ?? '');
-    $seMonthly = trim_string($_POST['se_monthly_earnings'] ?? '');
+    $seProfession = post_string_submit($_POST, 'se_profession_business');
+    $seYearStarted = post_string_submit($_POST, 'se_year_started');
+    $seMonthly = post_string_submit($_POST, 'se_monthly_earnings');
     if (has_any_value([$seProfession, $seYearStarted, $seMonthly])) {
         $stmt = $pdo->prepare(
             'INSERT INTO person_self_employment (person_id, profession_business, year_started, monthly_earnings)
@@ -264,16 +313,16 @@ try {
         );
         $stmt->execute([
             ':person_id' => $personId,
-            ':profession_business' => $seProfession !== '' ? $seProfession : null,
-            ':year_started' => $seYearStarted !== '' ? $seYearStarted : null,
-            ':monthly_earnings' => $seMonthly !== '' ? $seMonthly : null,
+            ':profession_business' => empty_string_to_null($seProfession),
+            ':year_started' => empty_string_to_null($seYearStarted),
+            ':monthly_earnings' => empty_string_to_null($seMonthly),
         ]);
     }
 
     // Part 3 - OFW
-    $ofwAddress = trim_string($_POST['ofw_foreign_address'] ?? '');
-    $ofwMonthly = trim_string($_POST['ofw_monthly_earnings'] ?? '');
-    $flexiFund = trim_string($_POST['flexi_fund'] ?? '');
+    $ofwAddress = post_string_submit($_POST, 'ofw_foreign_address');
+    $ofwMonthly = post_string_submit($_POST, 'ofw_monthly_earnings');
+    $flexiFund = post_string_submit($_POST, 'flexi_fund');
     if (has_any_value([$ofwAddress, $ofwMonthly, $flexiFund])) {
         $stmt = $pdo->prepare(
             'INSERT INTO person_ofw (person_id, foreign_address, monthly_earnings, flexi_fund)
@@ -281,15 +330,15 @@ try {
         );
         $stmt->execute([
             ':person_id' => $personId,
-            ':foreign_address' => $ofwAddress !== '' ? $ofwAddress : null,
-            ':monthly_earnings' => $ofwMonthly !== '' ? $ofwMonthly : null,
+            ':foreign_address' => empty_string_to_null($ofwAddress),
+            ':monthly_earnings' => empty_string_to_null($ofwMonthly),
             ':flexi_fund' => ($flexiFund === 'yes' || $flexiFund === 'no') ? $flexiFund : null,
         ]);
     }
 
     // Part 3 - NWS
-    $nwsSS = trim_string($_POST['nws_working_spouse_ss'] ?? '');
-    $nwsIncome = trim_string($_POST['nws_monthly_income'] ?? '');
+    $nwsSS = post_string_submit($_POST, 'nws_working_spouse_ss');
+    $nwsIncome = post_string_submit($_POST, 'nws_monthly_income');
     $nwsSigPath = save_uploaded_file('nws_signature_file');
     if (has_any_value([$nwsSS, $nwsIncome, $nwsSigPath])) {
         $stmt = $pdo->prepare(
@@ -298,16 +347,16 @@ try {
         );
         $stmt->execute([
             ':person_id' => $personId,
-            ':working_spouse_ss_no' => $nwsSS !== '' ? $nwsSS : null,
-            ':working_spouse_monthly_income' => $nwsIncome !== '' ? $nwsIncome : null,
+            ':working_spouse_ss_no' => empty_string_to_null($nwsSS),
+            ':working_spouse_monthly_income' => empty_string_to_null($nwsIncome),
             ':working_spouse_signature_file_path' => $nwsSigPath,
         ]);
     }
 
     // Part 4 - Certification
-    $certPrinted = trim_string($_POST['cert_printed_name'] ?? '');
-    $certSignatureText = trim_string($_POST['cert_signature'] ?? '');
-    $certDate = trim_string($_POST['cert_date'] ?? '');
+    $certPrinted = post_string_submit($_POST, 'cert_printed_name');
+    $certSignatureText = post_string_submit($_POST, 'cert_signature');
+    $certDate = post_string_submit($_POST, 'cert_date');
     $certSigPath = save_uploaded_file('cert_signature_file');
     if (has_any_value([$certPrinted, $certSignatureText, $certDate, $certSigPath])) {
         $stmt = $pdo->prepare(
@@ -316,27 +365,27 @@ try {
         );
         $stmt->execute([
             ':person_id' => $personId,
-            ':printed_name' => $certPrinted !== '' ? $certPrinted : null,
-            ':signature_text' => $certSignatureText !== '' ? $certSignatureText : null,
+            ':printed_name' => empty_string_to_null($certPrinted),
+            ':signature_text' => empty_string_to_null($certSignatureText),
             ':signature_file_path' => $certSigPath,
-            ':cert_date' => $certDate !== '' ? $certDate : null,
+            ':cert_date' => empty_string_to_null($certDate),
         ]);
     }
 
     // Part 5 - SSS Processing
-    $sssBusinessCode = trim_string($_POST['sss_business_code'] ?? '');
-    $sssWorkingSpouseMsc = trim_string($_POST['sss_working_spouse_msc'] ?? '');
-    $sssMonthlyContribution = trim_string($_POST['sss_monthly_contribution'] ?? '');
-    $sssApprovedMsc = trim_string($_POST['sss_approved_msc'] ?? '');
-    $sssStartPayment = trim_string($_POST['sss_start_of_payment'] ?? '');
-    $sssFlexiStatus = trim_string($_POST['sss_flexi_status'] ?? '');
+    $sssBusinessCode = post_string_submit($_POST, 'sss_business_code');
+    $sssWorkingSpouseMsc = post_string_submit($_POST, 'sss_working_spouse_msc');
+    $sssMonthlyContribution = post_string_submit($_POST, 'sss_monthly_contribution');
+    $sssApprovedMsc = post_string_submit($_POST, 'sss_approved_msc');
+    $sssStartPayment = post_string_submit($_POST, 'sss_start_of_payment');
+    $sssFlexiStatus = post_string_submit($_POST, 'sss_flexi_status');
 
     $receivedSigPath = save_uploaded_file('sss_received_by_signature');
-    $receivedDateTime = trim_string($_POST['sss_received_by_datetime'] ?? '');
+    $receivedDateTime = post_string_submit($_POST, 'sss_received_by_datetime');
     $processedSigPath = save_uploaded_file('sss_processed_by_signature');
-    $processedDateTime = trim_string($_POST['sss_processed_by_datetime'] ?? '');
+    $processedDateTime = post_string_submit($_POST, 'sss_processed_by_datetime');
     $reviewedSigPath = save_uploaded_file('sss_reviewed_by_signature');
-    $reviewedDateTime = trim_string($_POST['sss_reviewed_by_datetime'] ?? '');
+    $reviewedDateTime = post_string_submit($_POST, 'sss_reviewed_by_datetime');
 
     if (has_any_value([
         $sssBusinessCode,
@@ -369,18 +418,18 @@ try {
         );
         $stmt->execute([
             ':person_id' => $personId,
-            ':business_code' => $sssBusinessCode !== '' ? $sssBusinessCode : null,
-            ':working_spouse_msc' => $sssWorkingSpouseMsc !== '' ? $sssWorkingSpouseMsc : null,
-            ':monthly_contribution' => $sssMonthlyContribution !== '' ? $sssMonthlyContribution : null,
-            ':approved_msc' => $sssApprovedMsc !== '' ? $sssApprovedMsc : null,
-            ':start_of_payment' => $sssStartPayment !== '' ? $sssStartPayment : null,
+            ':business_code' => empty_string_to_null($sssBusinessCode),
+            ':working_spouse_msc' => empty_string_to_null($sssWorkingSpouseMsc),
+            ':monthly_contribution' => empty_string_to_null($sssMonthlyContribution),
+            ':approved_msc' => empty_string_to_null($sssApprovedMsc),
+            ':start_of_payment' => empty_string_to_null($sssStartPayment),
             ':flexi_status' => ($sssFlexiStatus === 'approved' || $sssFlexiStatus === 'disapproved') ? $sssFlexiStatus : null,
             ':received_by_signature_path' => $receivedSigPath,
-            ':received_by_datetime' => $receivedDateTime !== '' ? str_replace('T', ' ', $receivedDateTime) : null,
+            ':received_by_datetime' => datetime_local_to_mysql($receivedDateTime),
             ':processed_by_signature_path' => $processedSigPath,
-            ':processed_by_datetime' => $processedDateTime !== '' ? str_replace('T', ' ', $processedDateTime) : null,
+            ':processed_by_datetime' => datetime_local_to_mysql($processedDateTime),
             ':reviewed_by_signature_path' => $reviewedSigPath,
-            ':reviewed_by_datetime' => $reviewedDateTime !== '' ? str_replace('T', ' ', $reviewedDateTime) : null,
+            ':reviewed_by_datetime' => datetime_local_to_mysql($reviewedDateTime),
         ]);
     }
 
@@ -394,36 +443,12 @@ try {
     error_log('E1PersonalRecord submit.php error: ' . $e->getMessage());
     error_log($e->getTraceAsString());
 
-    http_response_code(500);
-
-    echo '<!DOCTYPE html>';
-    echo '<html lang="en">';
-    echo '<head>';
-    echo '<meta charset="UTF-8">';
-    echo '<meta name="viewport" content="width=device-width, initial-scale=1.0">';
-    echo '<title>Server Error</title>';
-    echo '<style>';
-    echo 'body{font-family:Arial,sans-serif;background:#f5f6f8;color:#1f2937;padding:24px;}';
-    echo '.card{max-width:900px;margin:0 auto;background:#fff;border:1px solid #dcdfe4;border-radius:6px;padding:16px;}';
-    echo '.title{font-weight:700;margin-bottom:10px;}';
-    echo '.btn{display:inline-block;margin-top:12px;background:#2563eb;color:#fff;padding:10px 14px;border-radius:6px;text-decoration:none;font-weight:700;}';
-    echo '</style>';
-    echo '</head>';
-    echo '<body>';
-    echo '<div class="card">';
-    echo '<div class="title">Server Error</div>';
-    echo '<div>Unable to save your form. Please try again.</div>';
-    if ($isLocal) {
-        echo '<div style="margin-top:10px;background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:6px;padding:10px 12px;">';
-        echo '<div style="font-weight:700;margin-bottom:6px;">Debug (local only)</div>';
-        echo '<div>' . htmlspecialchars($e->getMessage()) . '</div>';
-        echo '</div>';
-    }
-    echo '<a class="btn" href="index.php">Back to form</a>';
-    echo '</div>';
-    echo '</body>';
-    echo '</html>';
-    exit;
+    render_html_error_page(
+        500,
+        'Server Error',
+        'Unable to save your form. Please try again.',
+        $isLocal ? $e->getMessage() : null
+    );
 }
 
 echo '<!DOCTYPE html>';
