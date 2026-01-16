@@ -194,14 +194,6 @@ function trimValue(value) {
     return String(value || '').trim();
 }
 
-function inputValue(inputEl) {
-    return trimValue(inputEl && inputEl.value);
-}
-
-function isEmptyInput(inputEl) {
-    return inputValue(inputEl) === '';
-}
-
 function clearValidationUI(form) {
     if (!form) return;
 
@@ -264,20 +256,20 @@ function validateForm(form) {
     const sameAsHome = getById('sameAsHomeAddress');
     const isSameAsHomeChecked = !!(sameAsHome && sameAsHome.checked);
 
-    if (isEmptyInput(lastName)) {
+    if (!trimValue(lastName && lastName.value)) {
         errors.push('Last Name is required.');
         markInputError(lastName);
     }
-    if (isEmptyInput(firstName)) {
+    if (!trimValue(firstName && firstName.value)) {
         errors.push('First Name is required.');
         markInputError(firstName);
     }
-    if (isEmptyInput(middleName)) {
+    if (!trimValue(middleName && middleName.value)) {
         errors.push('Middle Name is required.');
         markInputError(middleName);
     }
 
-    if (isEmptyInput(dob)) {
+    if (!trimValue(dob && dob.value)) {
         errors.push('Date of Birth is required.');
         markInputError(dob);
     }
@@ -290,42 +282,42 @@ function validateForm(form) {
         markInputError(genderFemale);
     }
 
-    if (isEmptyInput(civilStatus)) {
+    if (!trimValue(civilStatus && civilStatus.value)) {
         errors.push('Civil Status is required.');
         markInputError(civilStatus);
     } else if (civilStatus.value === 'others') {
-        if (isEmptyInput(civilStatusOther)) {
+        if (!trimValue(civilStatusOther && civilStatusOther.value)) {
             errors.push('Civil Status (Others) is required.');
             markInputError(civilStatusOther);
         }
     }
 
-    if (isEmptyInput(nationality)) {
+    if (!trimValue(nationality && nationality.value)) {
         errors.push('Nationality is required.');
         markInputError(nationality);
     }
 
-    if (isEmptyInput(placeOfBirth)) {
+    if (!trimValue(placeOfBirth && placeOfBirth.value)) {
         errors.push('Place of Birth is required.');
         markInputError(placeOfBirth);
     }
 
     if (!isSameAsHomeChecked) {
-        if (isEmptyInput(homeAddress)) {
+        if (!trimValue(homeAddress && homeAddress.value)) {
             errors.push('Home Address is required.');
             markInputError(homeAddress);
         }
     }
 
-    if (isEmptyInput(mobile)) {
+    if (!trimValue(mobile && mobile.value)) {
         errors.push('Mobile/Cellphone Number is required.');
         markInputError(mobile);
     }
 
-    if (isEmptyInput(email)) {
+    if (!trimValue(email && email.value)) {
         errors.push('E-mail Address is required.');
         markInputError(email);
-    } else if (!isEmailValid(inputValue(email))) {
+    } else if (!isEmailValid(email.value)) {
         errors.push('E-mail Address must be a valid email (example: name@gmail.com).');
         markInputError(email);
     }

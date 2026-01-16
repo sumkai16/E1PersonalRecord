@@ -7,16 +7,6 @@ function trim_string($value): string
     return trim((string)($value ?? ''));
 }
 
-function post_string(array $post, string $key): string
-{
-    return trim_string($post[$key] ?? '');
-}
-
-function post_checkbox_is_one(array $post, string $key): bool
-{
-    return isset($post[$key]) && (string)$post[$key] === '1';
-}
-
 function is_email_valid(string $email): bool
 {
     return filter_var($email, FILTER_VALIDATE_EMAIL) !== false;
@@ -27,36 +17,36 @@ function validate_e1_form(array $post): array
     $errors = [];
 
     $data = [];
-    $data['last_name'] = post_string($post, 'last_name');
-    $data['first_name'] = post_string($post, 'first_name');
-    $data['middle_name'] = post_string($post, 'middle_name');
+    $data['last_name'] = trim_string($post['last_name'] ?? '');
+    $data['first_name'] = trim_string($post['first_name'] ?? '');
+    $data['middle_name'] = trim_string($post['middle_name'] ?? '');
 
-    $data['date_of_birth'] = post_string($post, 'date_of_birth');
-    $data['gender'] = post_string($post, 'gender');
-    $data['civil_status'] = post_string($post, 'civil_status');
-    $data['civil_status_other'] = post_string($post, 'civil_status_other');
+    $data['date_of_birth'] = trim_string($post['date_of_birth'] ?? '');
+    $data['gender'] = trim_string($post['gender'] ?? '');
+    $data['civil_status'] = trim_string($post['civil_status'] ?? '');
+    $data['civil_status_other'] = trim_string($post['civil_status_other'] ?? '');
 
-    $data['nationality'] = post_string($post, 'nationality');
-    $data['place_of_birth'] = post_string($post, 'place_of_birth');
+    $data['nationality'] = trim_string($post['nationality'] ?? '');
+    $data['place_of_birth'] = trim_string($post['place_of_birth'] ?? '');
 
-    $data['same_as_home_address'] = post_checkbox_is_one($post, 'same_as_home_address');
+    $data['same_as_home_address'] = isset($post['same_as_home_address']) && (string)$post['same_as_home_address'] === '1';
 
-    $data['home_address'] = post_string($post, 'home_address');
-    $data['zip_code'] = post_string($post, 'zip_code');
+    $data['home_address'] = trim_string($post['home_address'] ?? '');
+    $data['zip_code'] = trim_string($post['zip_code'] ?? '');
 
-    $data['mobile_number'] = post_string($post, 'mobile_number');
-    $data['email'] = post_string($post, 'email');
+    $data['mobile_number'] = trim_string($post['mobile_number'] ?? '');
+    $data['email'] = trim_string($post['email'] ?? '');
 
-    $data['religion'] = post_string($post, 'religion');
-    $data['telephone_number'] = post_string($post, 'telephone_number');
+    $data['religion'] = trim_string($post['religion'] ?? '');
+    $data['telephone_number'] = trim_string($post['telephone_number'] ?? '');
 
-    $data['father_last_name'] = post_string($post, 'father_last_name');
-    $data['father_first_name'] = post_string($post, 'father_first_name');
-    $data['father_middle_name'] = post_string($post, 'father_middle_name');
+    $data['father_last_name'] = trim_string($post['father_last_name'] ?? '');
+    $data['father_first_name'] = trim_string($post['father_first_name'] ?? '');
+    $data['father_middle_name'] = trim_string($post['father_middle_name'] ?? '');
 
-    $data['mother_last_name'] = post_string($post, 'mother_last_name');
-    $data['mother_first_name'] = post_string($post, 'mother_first_name');
-    $data['mother_middle_name'] = post_string($post, 'mother_middle_name');
+    $data['mother_last_name'] = trim_string($post['mother_last_name'] ?? '');
+    $data['mother_first_name'] = trim_string($post['mother_first_name'] ?? '');
+    $data['mother_middle_name'] = trim_string($post['mother_middle_name'] ?? '');
 
     if ($data['last_name'] === '') $errors[] = 'Last Name is required.';
     if ($data['first_name'] === '') $errors[] = 'First Name is required.';
