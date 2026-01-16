@@ -74,6 +74,12 @@ function save_uploaded_file(string $fieldName): ?string
     if (!isset($file['tmp_name']) || !is_string($file['tmp_name'])) return null;
     if (!isset($file['name']) || !is_string($file['name'])) return null;
 
+    // Basic upload hardening: limit file size and restrict to common safe types.
+    if (isset($file['size']) && is_numeric($file['size'])) {
+        $maxBytes = 5 * 1024 * 1024; // 5MB
+        if ((int)$file['size'] > $maxBytes) return null;
+    }
+
     $uploadsDir = __DIR__ . '/uploads';
     if (!is_dir($uploadsDir)) {
         mkdir($uploadsDir, 0777, true);
@@ -82,6 +88,30 @@ function save_uploaded_file(string $fieldName): ?string
     $originalName = $file['name'];
     $ext = pathinfo($originalName, PATHINFO_EXTENSION);
     $ext = $ext ? ('.' . strtolower($ext)) : '';
+
+    // Block dangerous extensions even if someone tries to upload them.
+    $blockedExts = [
+        '.php', '.phtml', '.php3', '.php4', '.php5', '.php7',
+        '.phar', '.cgi', '.pl', '.asp', '.aspx', '.jsp',
+        '.sh', '.bat', '.cmd', '.exe',
+    ];
+    if ($ext !== '' && in_array($ext, $blockedExts, true)) return null;
+
+    // Allowlist of extensions we accept for signature uploads.
+    $allowedExts = ['.png', '.jpg', '.jpeg', '.webp', '.pdf'];
+    if ($ext === '' || !in_array($ext, $allowedExts, true)) return null;
+
+    // MIME check (best effort). This helps block renamed files.
+    $allowedMimes = ['image/png', 'image/jpeg', 'image/webp', 'application/pdf'];
+    if (function_exists('finfo_open')) {
+        $finfo = finfo_open(FILEINFO_MIME_TYPE);
+        if ($finfo) {
+            $mime = finfo_file($finfo, $file['tmp_name']);
+            finfo_close($finfo);
+            if (!is_string($mime) || !in_array($mime, $allowedMimes, true)) return null;
+        }
+    }
+
     $safeName = 'upload_' . date('Ymd_His') . '_' . bin2hex(random_bytes(6)) . $ext;
 
     $targetPath = $uploadsDir . '/' . $safeName;
