@@ -1,0 +1,5 @@
+# Force GitHub Linguist to treat these files as their intended languages
+*.php linguist-language=PHP
+*.css linguist-language=CSS
+*.js linguist-language=JavaScript
+*.html linguist-language=HTML
