@@ -264,10 +264,6 @@ function validateForm(form) {
         errors.push('First Name is required.');
         markInputError(firstName);
     }
-    if (!trimValue(middleName && middleName.value)) {
-        errors.push('Middle Name is required.');
-        markInputError(middleName);
-    }
 
     if (!trimValue(dob && dob.value)) {
         errors.push('Date of Birth is required.');

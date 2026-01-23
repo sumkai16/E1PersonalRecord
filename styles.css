@@ -172,7 +172,7 @@
  }
  .mobile-number{display: flex; gap: 16px;}
  .home-address{display: flex; gap:16px;}
- .name{display: flex; gap:10px;}
+ .name{display: flex; gap:5px;}
  .mother-name {
      border-bottom: none;
  }
@@ -709,7 +709,7 @@
  .name-inputs {
      display: grid;
      grid-template-columns: repeat(3, minmax(0, 1fr));
-     gap: 10px;
+     gap: 5px;
  }
 
  .dep-card {

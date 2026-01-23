@@ -50,7 +50,6 @@ function validate_e1_form(array $post): array
 
     if ($data['last_name'] === '') $errors[] = 'Last Name is required.';
     if ($data['first_name'] === '') $errors[] = 'First Name is required.';
-    if ($data['middle_name'] === '') $errors[] = 'Middle Name is required.';
 
     if ($data['date_of_birth'] === '') $errors[] = 'Date of Birth is required.';
     if ($data['gender'] === '') $errors[] = 'Sex is required.';
