@@ -1,56 +1,105 @@
 <?php
 
-declare(strict_types=1);
+// This file handles form submission
+// It validates the form, saves data to database, and handles file uploads
 
+// Include required files
 require_once __DIR__ . '/validation.php';
-require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/crud_functions.php';
 
-function has_any_value(array $values): bool
+// Function to check if any value in array is not empty
+function has_any_value($values)
 {
+    // Loop through all values
     for ($i = 0; $i < count($values); $i++) {
-        if (trim_string($values[$i]) !== '') return true;
+        // If any value is not empty, return true
+        if (trim_string($values[$i]) !== '') {
+            return true;
+        }
     }
+    // If all values are empty, return false
     return false;
 }
 
-function save_uploaded_file(string $fieldName): ?string
+// Function to save uploaded file
+function save_uploaded_file($fieldName)
 {
-    if (!isset($_FILES[$fieldName])) return null;
-    if (!is_array($_FILES[$fieldName])) return null;
-
+    // Check if file was uploaded
+    if (!isset($_FILES[$fieldName])) {
+        return null;
+    }
+    
+    // Check if it's an array (should be)
+    if (!is_array($_FILES[$fieldName])) {
+        return null;
+    }
+    
+    // Get file information
     $file = $_FILES[$fieldName];
-    if (!isset($file['error']) || $file['error'] !== UPLOAD_ERR_OK) return null;
-    if (!isset($file['tmp_name']) || !is_string($file['tmp_name'])) return null;
-    if (!isset($file['name']) || !is_string($file['name'])) return null;
-
+    
+    // Check if upload was successful
+    if (!isset($file['error']) || $file['error'] !== UPLOAD_ERR_OK) {
+        return null;
+    }
+    
+    // Check if temp file exists
+    if (!isset($file['tmp_name']) || !is_string($file['tmp_name'])) {
+        return null;
+    }
+    
+    // Check if filename exists
+    if (!isset($file['name']) || !is_string($file['name'])) {
+        return null;
+    }
+    
+    // Create uploads directory if it doesn't exist
     $uploadsDir = __DIR__ . '/uploads';
     if (!is_dir($uploadsDir)) {
         mkdir($uploadsDir, 0777, true);
     }
-
+    
+    // Get original filename and extension
     $originalName = $file['name'];
     $ext = pathinfo($originalName, PATHINFO_EXTENSION);
-    $ext = $ext ? ('.' . strtolower($ext)) : '';
+    // Add dot before extension if extension exists
+    if ($ext) {
+        $ext = '.' . strtolower($ext);
+    } else {
+        $ext = '';
+    }
+    
+    // Create a safe filename (to prevent conflicts and security issues)
     $safeName = 'upload_' . date('Ymd_His') . '_' . bin2hex(random_bytes(6)) . $ext;
-
+    
+    // Full path where file will be saved
     $targetPath = $uploadsDir . '/' . $safeName;
-    if (!move_uploaded_file($file['tmp_name'], $targetPath)) return null;
-
+    
+    // Move file from temp location to uploads folder
+    if (!move_uploaded_file($file['tmp_name'], $targetPath)) {
+        return null;
+    }
+    
+    // Return relative path (for storing in database)
     return 'uploads/' . $safeName;
 }
 
+// Check if form was submitted via POST method
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
     echo 'Method Not Allowed';
     exit;
 }
 
+// Validate the form data
 $result = validate_e1_form($_POST);
 
+// If validation failed, show errors
 if (!$result['ok']) {
     http_response_code(400);
-
+    
     $errors = $result['errors'];
+    
+    // Display error page
     echo '<!DOCTYPE html>';
     echo '<html lang="en">';
     echo '<head>';
@@ -70,166 +119,123 @@ if (!$result['ok']) {
     echo '<div class="card">';
     echo '<div class="title">Please fix the following errors:</div>';
     echo '<div class="err"><ul>';
+    // Display each error
     for ($i = 0; $i < count($errors); $i++) {
         echo '<li>' . htmlspecialchars($errors[$i]) . '</li>';
     }
     echo '</ul></div>';
-    echo '<a class="btn" href="index.php">Back to form</a>';
+    echo '<a class="btn" href="../index.php">Back to form</a>';
     echo '</div>';
     echo '</body>';
     echo '</html>';
     exit;
 }
 
+// Get cleaned form data
 $data = $result['data'];
 
+// Try to save data to database
 try {
+    // Get database connection
     $pdo = db();
+    // Start transaction (all or nothing)
     $pdo->beginTransaction();
-
-    $stmt = $pdo->prepare('SELECT id FROM civil_statuses WHERE code = :code LIMIT 1');
-    $stmt->execute([':code' => $data['civil_status']]);
-    $civilStatusRow = $stmt->fetch();
-    if (!$civilStatusRow || !isset($civilStatusRow['id'])) {
-        throw new Exception('Invalid civil status.');
-    }
-    $civilStatusId = (int)$civilStatusRow['id'];
-
-    $personStmt = $pdo->prepare(
-        'INSERT INTO persons (
-            last_name, first_name, middle_name,
-            date_of_birth, sex,
-            civil_status_id, civil_status_other,
-            nationality, place_of_birth,
-            mobile_number, email,
-            religion, telephone_number,
-            father_last_name, father_first_name, father_middle_name,
-            mother_last_name, mother_first_name, mother_middle_name,
-            same_as_home_address
-        ) VALUES (
-            :last_name, :first_name, :middle_name,
-            :date_of_birth, :sex,
-            :civil_status_id, :civil_status_other,
-            :nationality, :place_of_birth,
-            :mobile_number, :email,
-            :religion, :telephone_number,
-            :father_last_name, :father_first_name, :father_middle_name,
-            :mother_last_name, :mother_first_name, :mother_middle_name,
-            :same_as_home_address
-        )'
-    );
-
-    $personStmt->execute([
-        ':last_name' => $data['last_name'],
-        ':first_name' => $data['first_name'],
-        ':middle_name' => $data['middle_name'],
-        ':date_of_birth' => $data['date_of_birth'],
-        ':sex' => $data['gender'],
-        ':civil_status_id' => $civilStatusId,
-        ':civil_status_other' => $data['civil_status'] === 'others' ? $data['civil_status_other'] : null,
-        ':nationality' => $data['nationality'],
-        ':place_of_birth' => $data['place_of_birth'],
-        ':mobile_number' => $data['mobile_number'],
-        ':email' => $data['email'],
-        ':religion' => $data['religion'] !== '' ? $data['religion'] : null,
-        ':telephone_number' => $data['telephone_number'] !== '' ? $data['telephone_number'] : null,
-        ':father_last_name' => $data['father_last_name'] !== '' ? $data['father_last_name'] : null,
-        ':father_first_name' => $data['father_first_name'] !== '' ? $data['father_first_name'] : null,
-        ':father_middle_name' => $data['father_middle_name'] !== '' ? $data['father_middle_name'] : null,
-        ':mother_last_name' => $data['mother_last_name'] !== '' ? $data['mother_last_name'] : null,
-        ':mother_first_name' => $data['mother_first_name'] !== '' ? $data['mother_first_name'] : null,
-        ':mother_middle_name' => $data['mother_middle_name'] !== '' ? $data['mother_middle_name'] : null,
-        ':same_as_home_address' => $data['same_as_home_address'] ? 1 : 0,
-    ]);
-
-    $personId = (int)$pdo->lastInsertId();
-
-    $homeStmt = $pdo->prepare(
-        'INSERT INTO person_home_addresses (person_id, address_line, zip_code)
-         VALUES (:person_id, :address_line, :zip_code)'
-    );
-    $homeStmt->execute([
-        ':person_id' => $personId,
-        ':address_line' => $data['home_address'],
-        ':zip_code' => $data['zip_code'] !== '' ? $data['zip_code'] : null,
-    ]);
-
-    // Part 2 - spouse
+    
+    // Create person record and get person ID
+    $personId = create_person($data);
+    
+    // ===== PART 2: DEPENDENTS =====
+    
+    // Save spouse information
     $spouseLast = trim_string($_POST['spouse_last_name'] ?? '');
     $spouseFirst = trim_string($_POST['spouse_first_name'] ?? '');
     $spouseMiddle = trim_string($_POST['spouse_middle_name'] ?? '');
     $spouseSuffix = trim_string($_POST['spouse_suffix'] ?? '');
     $spouseBirth = trim_string($_POST['spouse_birth'] ?? '');
-
-    if (has_any_value([$spouseLast, $spouseFirst, $spouseMiddle, $spouseSuffix, $spouseBirth])) {
+    
+    // If any spouse field has value, save spouse
+    if (has_any_value(array($spouseLast, $spouseFirst, $spouseMiddle, $spouseSuffix, $spouseBirth))) {
         $depStmt = $pdo->prepare(
             'INSERT INTO person_dependents (person_id, dependent_type, last_name, first_name, middle_name, suffix, date_of_birth, relationship)
              VALUES (:person_id, :dependent_type, :last_name, :first_name, :middle_name, :suffix, :date_of_birth, :relationship)'
         );
-        $depStmt->execute([
+        $depStmt->execute(array(
             ':person_id' => $personId,
             ':dependent_type' => 'spouse',
-            ':last_name' => $spouseLast !== '' ? $spouseLast : '-',
-            ':first_name' => $spouseFirst !== '' ? $spouseFirst : '-',
-            ':middle_name' => $spouseMiddle !== '' ? $spouseMiddle : null,
-            ':suffix' => $spouseSuffix !== '' ? $spouseSuffix : null,
-            ':date_of_birth' => $spouseBirth !== '' ? $spouseBirth : null,
+            ':last_name' => ($spouseLast !== '') ? $spouseLast : '-',
+            ':first_name' => ($spouseFirst !== '') ? $spouseFirst : '-',
+            ':middle_name' => ($spouseMiddle !== '') ? $spouseMiddle : null,
+            ':suffix' => ($spouseSuffix !== '') ? $spouseSuffix : null,
+            ':date_of_birth' => ($spouseBirth !== '') ? $spouseBirth : null,
             ':relationship' => null,
-        ]);
+        ));
     }
-
-    // Part 2 - children (dynamic)
-    $childIndices = [];
+    
+    // Save children (dynamic - can have multiple)
+    // First, find all child indices from POST data
+    $childIndices = array();
     foreach ($_POST as $key => $value) {
-        if (preg_match('/^child_(\d+)_last_name$/', (string)$key, $m)) {
-            $childIndices[] = (int)$m[1];
+        // Look for keys like "child_1_last_name", "child_2_last_name", etc.
+        if (preg_match('/^child_(\d+)_last_name$/', (string)$key, $matches)) {
+            $childIndices[] = (int)$matches[1];
         }
     }
+    // Remove duplicates and sort
     $childIndices = array_values(array_unique($childIndices));
     sort($childIndices);
-
+    
+    // If there are children, save them
     if (count($childIndices) > 0) {
         $depStmt = $pdo->prepare(
             'INSERT INTO person_dependents (person_id, dependent_type, last_name, first_name, middle_name, suffix, date_of_birth, relationship)
              VALUES (:person_id, :dependent_type, :last_name, :first_name, :middle_name, :suffix, :date_of_birth, :relationship)'
         );
+        
+        // Loop through each child
         foreach ($childIndices as $i) {
             $last = trim_string($_POST['child_' . $i . '_last_name'] ?? '');
             $first = trim_string($_POST['child_' . $i . '_first_name'] ?? '');
             $middle = trim_string($_POST['child_' . $i . '_middle_name'] ?? '');
             $suffix = trim_string($_POST['child_' . $i . '_suffix'] ?? '');
             $birth = trim_string($_POST['child_' . $i . '_birth'] ?? '');
-
-            if (!has_any_value([$last, $first, $middle, $suffix, $birth])) continue;
-
-            $depStmt->execute([
-                ':person_id' => $personId,
-                ':dependent_type' => 'child',
-                ':last_name' => $last !== '' ? $last : '-',
-                ':first_name' => $first !== '' ? $first : '-',
-                ':middle_name' => $middle !== '' ? $middle : null,
-                ':suffix' => $suffix !== '' ? $suffix : null,
-                ':date_of_birth' => $birth !== '' ? $birth : null,
-                ':relationship' => null,
-            ]);
+            
+            // If any field has value, save this child
+            if (has_any_value(array($last, $first, $middle, $suffix, $birth))) {
+                $depStmt->execute(array(
+                    ':person_id' => $personId,
+                    ':dependent_type' => 'child',
+                    ':last_name' => ($last !== '') ? $last : '-',
+                    ':first_name' => ($first !== '') ? $first : '-',
+                    ':middle_name' => ($middle !== '') ? $middle : null,
+                    ':suffix' => ($suffix !== '') ? $suffix : null,
+                    ':date_of_birth' => ($birth !== '') ? $birth : null,
+                    ':relationship' => null,
+                ));
+            }
         }
     }
-
-    // Part 2 - other beneficiaries (dynamic)
-    $otherIndices = [];
+    
+    // Save other beneficiaries (dynamic - can have multiple)
+    // Find all other indices from POST data
+    $otherIndices = array();
     foreach ($_POST as $key => $value) {
-        if (preg_match('/^other_(\d+)_last_name$/', (string)$key, $m)) {
-            $otherIndices[] = (int)$m[1];
+        // Look for keys like "other_1_last_name", "other_2_last_name", etc.
+        if (preg_match('/^other_(\d+)_last_name$/', (string)$key, $matches)) {
+            $otherIndices[] = (int)$matches[1];
         }
     }
+    // Remove duplicates and sort
     $otherIndices = array_values(array_unique($otherIndices));
     sort($otherIndices);
-
+    
+    // If there are other beneficiaries, save them
     if (count($otherIndices) > 0) {
         $depStmt = $pdo->prepare(
             'INSERT INTO person_dependents (person_id, dependent_type, last_name, first_name, middle_name, suffix, date_of_birth, relationship)
              VALUES (:person_id, :dependent_type, :last_name, :first_name, :middle_name, :suffix, :date_of_birth, :relationship)'
         );
+        
+        // Loop through each other beneficiary
         foreach ($otherIndices as $i) {
             $last = trim_string($_POST['other_' . $i . '_last_name'] ?? '');
             $first = trim_string($_POST['other_' . $i . '_first_name'] ?? '');
@@ -237,108 +243,126 @@ try {
             $suffix = trim_string($_POST['other_' . $i . '_suffix'] ?? '');
             $relationship = trim_string($_POST['other_' . $i . '_relationship'] ?? '');
             $birth = trim_string($_POST['other_' . $i . '_birth'] ?? '');
-
-            if (!has_any_value([$last, $first, $middle, $suffix, $relationship, $birth])) continue;
-
-            $depStmt->execute([
-                ':person_id' => $personId,
-                ':dependent_type' => 'other',
-                ':last_name' => $last !== '' ? $last : '-',
-                ':first_name' => $first !== '' ? $first : '-',
-                ':middle_name' => $middle !== '' ? $middle : null,
-                ':suffix' => $suffix !== '' ? $suffix : null,
-                ':date_of_birth' => $birth !== '' ? $birth : null,
-                ':relationship' => $relationship !== '' ? $relationship : null,
-            ]);
+            
+            // If any field has value, save this other beneficiary
+            if (has_any_value(array($last, $first, $middle, $suffix, $relationship, $birth))) {
+                $depStmt->execute(array(
+                    ':person_id' => $personId,
+                    ':dependent_type' => 'other',
+                    ':last_name' => ($last !== '') ? $last : '-',
+                    ':first_name' => ($first !== '') ? $first : '-',
+                    ':middle_name' => ($middle !== '') ? $middle : null,
+                    ':suffix' => ($suffix !== '') ? $suffix : null,
+                    ':date_of_birth' => ($birth !== '') ? $birth : null,
+                    ':relationship' => ($relationship !== '') ? $relationship : null,
+                ));
+            }
         }
     }
-
-    // Part 3 - SE
+    
+    // ===== PART 3: SELF-EMPLOYED / OFW / NWS =====
+    
+    // Save Self-Employed (SE) information
     $seProfession = trim_string($_POST['se_profession_business'] ?? '');
     $seYearStarted = trim_string($_POST['se_year_started'] ?? '');
     $seMonthly = trim_string($_POST['se_monthly_earnings'] ?? '');
-    if (has_any_value([$seProfession, $seYearStarted, $seMonthly])) {
+    
+    if (has_any_value(array($seProfession, $seYearStarted, $seMonthly))) {
         $stmt = $pdo->prepare(
             'INSERT INTO person_self_employment (person_id, profession_business, year_started, monthly_earnings)
              VALUES (:person_id, :profession_business, :year_started, :monthly_earnings)'
         );
-        $stmt->execute([
+        $stmt->execute(array(
             ':person_id' => $personId,
-            ':profession_business' => $seProfession !== '' ? $seProfession : null,
-            ':year_started' => $seYearStarted !== '' ? $seYearStarted : null,
-            ':monthly_earnings' => $seMonthly !== '' ? $seMonthly : null,
-        ]);
+            ':profession_business' => ($seProfession !== '') ? $seProfession : null,
+            ':year_started' => ($seYearStarted !== '') ? $seYearStarted : null,
+            ':monthly_earnings' => ($seMonthly !== '') ? $seMonthly : null,
+        ));
     }
-
-    // Part 3 - OFW
+    
+    // Save Overseas Filipino Worker (OFW) information
     $ofwAddress = trim_string($_POST['ofw_foreign_address'] ?? '');
     $ofwMonthly = trim_string($_POST['ofw_monthly_earnings'] ?? '');
     $flexiFund = trim_string($_POST['flexi_fund'] ?? '');
-    if (has_any_value([$ofwAddress, $ofwMonthly, $flexiFund])) {
+    
+    if (has_any_value(array($ofwAddress, $ofwMonthly, $flexiFund))) {
         $stmt = $pdo->prepare(
             'INSERT INTO person_ofw (person_id, foreign_address, monthly_earnings, flexi_fund)
              VALUES (:person_id, :foreign_address, :monthly_earnings, :flexi_fund)'
         );
-        $stmt->execute([
+        
+        // Only allow 'yes' or 'no' for flexi_fund
+        $flexiFundValue = null;
+        if ($flexiFund === 'yes' || $flexiFund === 'no') {
+            $flexiFundValue = $flexiFund;
+        }
+        
+        $stmt->execute(array(
             ':person_id' => $personId,
-            ':foreign_address' => $ofwAddress !== '' ? $ofwAddress : null,
-            ':monthly_earnings' => $ofwMonthly !== '' ? $ofwMonthly : null,
-            ':flexi_fund' => ($flexiFund === 'yes' || $flexiFund === 'no') ? $flexiFund : null,
-        ]);
+            ':foreign_address' => ($ofwAddress !== '') ? $ofwAddress : null,
+            ':monthly_earnings' => ($ofwMonthly !== '') ? $ofwMonthly : null,
+            ':flexi_fund' => $flexiFundValue,
+        ));
     }
-
-    // Part 3 - NWS
+    
+    // Save Non-Working Spouse (NWS) information
     $nwsSS = trim_string($_POST['nws_working_spouse_ss'] ?? '');
     $nwsIncome = trim_string($_POST['nws_monthly_income'] ?? '');
     $nwsSigPath = save_uploaded_file('nws_signature_file');
-    if (has_any_value([$nwsSS, $nwsIncome, $nwsSigPath])) {
+    
+    if (has_any_value(array($nwsSS, $nwsIncome, $nwsSigPath))) {
         $stmt = $pdo->prepare(
             'INSERT INTO person_nws (person_id, working_spouse_ss_no, working_spouse_monthly_income, working_spouse_signature_file_path)
              VALUES (:person_id, :working_spouse_ss_no, :working_spouse_monthly_income, :working_spouse_signature_file_path)'
         );
-        $stmt->execute([
+        $stmt->execute(array(
             ':person_id' => $personId,
-            ':working_spouse_ss_no' => $nwsSS !== '' ? $nwsSS : null,
-            ':working_spouse_monthly_income' => $nwsIncome !== '' ? $nwsIncome : null,
+            ':working_spouse_ss_no' => ($nwsSS !== '') ? $nwsSS : null,
+            ':working_spouse_monthly_income' => ($nwsIncome !== '') ? $nwsIncome : null,
             ':working_spouse_signature_file_path' => $nwsSigPath,
-        ]);
+        ));
     }
-
-    // Part 4 - Certification
+    
+    // ===== PART 4: CERTIFICATION =====
+    
     $certPrinted = trim_string($_POST['cert_printed_name'] ?? '');
     $certSignatureText = trim_string($_POST['cert_signature'] ?? '');
     $certDate = trim_string($_POST['cert_date'] ?? '');
     $certSigPath = save_uploaded_file('cert_signature_file');
-    if (has_any_value([$certPrinted, $certSignatureText, $certDate, $certSigPath])) {
+    
+    if (has_any_value(array($certPrinted, $certSignatureText, $certDate, $certSigPath))) {
         $stmt = $pdo->prepare(
             'INSERT INTO person_certifications (person_id, printed_name, signature_text, signature_file_path, cert_date)
              VALUES (:person_id, :printed_name, :signature_text, :signature_file_path, :cert_date)'
         );
-        $stmt->execute([
+        $stmt->execute(array(
             ':person_id' => $personId,
-            ':printed_name' => $certPrinted !== '' ? $certPrinted : null,
-            ':signature_text' => $certSignatureText !== '' ? $certSignatureText : null,
+            ':printed_name' => ($certPrinted !== '') ? $certPrinted : null,
+            ':signature_text' => ($certSignatureText !== '') ? $certSignatureText : null,
             ':signature_file_path' => $certSigPath,
-            ':cert_date' => $certDate !== '' ? $certDate : null,
-        ]);
+            ':cert_date' => ($certDate !== '') ? $certDate : null,
+        ));
     }
-
-    // Part 5 - SSS Processing
+    
+    // ===== PART 5: SSS PROCESSING =====
+    
     $sssBusinessCode = trim_string($_POST['sss_business_code'] ?? '');
     $sssWorkingSpouseMsc = trim_string($_POST['sss_working_spouse_msc'] ?? '');
     $sssMonthlyContribution = trim_string($_POST['sss_monthly_contribution'] ?? '');
     $sssApprovedMsc = trim_string($_POST['sss_approved_msc'] ?? '');
     $sssStartPayment = trim_string($_POST['sss_start_of_payment'] ?? '');
     $sssFlexiStatus = trim_string($_POST['sss_flexi_status'] ?? '');
-
+    
+    // Save signature files
     $receivedSigPath = save_uploaded_file('sss_received_by_signature');
     $receivedDateTime = trim_string($_POST['sss_received_by_datetime'] ?? '');
     $processedSigPath = save_uploaded_file('sss_processed_by_signature');
     $processedDateTime = trim_string($_POST['sss_processed_by_datetime'] ?? '');
     $reviewedSigPath = save_uploaded_file('sss_reviewed_by_signature');
     $reviewedDateTime = trim_string($_POST['sss_reviewed_by_datetime'] ?? '');
-
-    if (has_any_value([
+    
+    // If any SSS field has value, save SSS processing data
+    if (has_any_value(array(
         $sssBusinessCode,
         $sssWorkingSpouseMsc,
         $sssMonthlyContribution,
@@ -351,7 +375,7 @@ try {
         $processedDateTime,
         $reviewedSigPath,
         $reviewedDateTime,
-    ])) {
+    ))) {
         $stmt = $pdo->prepare(
             'INSERT INTO person_sss_processing (
                 person_id,
@@ -367,35 +391,72 @@ try {
                 :reviewed_by_signature_path, :reviewed_by_datetime
             )'
         );
-        $stmt->execute([
+        
+        // Convert datetime-local format (YYYY-MM-DDTHH:MM) to MySQL format (YYYY-MM-DD HH:MM:SS)
+        $receivedDateTimeFormatted = null;
+        if ($receivedDateTime !== '') {
+            $receivedDateTimeFormatted = str_replace('T', ' ', $receivedDateTime) . ':00';
+        }
+        
+        $processedDateTimeFormatted = null;
+        if ($processedDateTime !== '') {
+            $processedDateTimeFormatted = str_replace('T', ' ', $processedDateTime) . ':00';
+        }
+        
+        $reviewedDateTimeFormatted = null;
+        if ($reviewedDateTime !== '') {
+            $reviewedDateTimeFormatted = str_replace('T', ' ', $reviewedDateTime) . ':00';
+        }
+        
+        // Only allow 'approved' or 'disapproved' for flexi_status
+        $flexiStatusValue = null;
+        if ($sssFlexiStatus === 'approved' || $sssFlexiStatus === 'disapproved') {
+            $flexiStatusValue = $sssFlexiStatus;
+        }
+        
+        $stmt->execute(array(
             ':person_id' => $personId,
-            ':business_code' => $sssBusinessCode !== '' ? $sssBusinessCode : null,
-            ':working_spouse_msc' => $sssWorkingSpouseMsc !== '' ? $sssWorkingSpouseMsc : null,
-            ':monthly_contribution' => $sssMonthlyContribution !== '' ? $sssMonthlyContribution : null,
-            ':approved_msc' => $sssApprovedMsc !== '' ? $sssApprovedMsc : null,
-            ':start_of_payment' => $sssStartPayment !== '' ? $sssStartPayment : null,
-            ':flexi_status' => ($sssFlexiStatus === 'approved' || $sssFlexiStatus === 'disapproved') ? $sssFlexiStatus : null,
+            ':business_code' => ($sssBusinessCode !== '') ? $sssBusinessCode : null,
+            ':working_spouse_msc' => ($sssWorkingSpouseMsc !== '') ? $sssWorkingSpouseMsc : null,
+            ':monthly_contribution' => ($sssMonthlyContribution !== '') ? $sssMonthlyContribution : null,
+            ':approved_msc' => ($sssApprovedMsc !== '') ? $sssApprovedMsc : null,
+            ':start_of_payment' => ($sssStartPayment !== '') ? $sssStartPayment : null,
+            ':flexi_status' => $flexiStatusValue,
             ':received_by_signature_path' => $receivedSigPath,
-            ':received_by_datetime' => $receivedDateTime !== '' ? str_replace('T', ' ', $receivedDateTime) : null,
+            ':received_by_datetime' => $receivedDateTimeFormatted,
             ':processed_by_signature_path' => $processedSigPath,
-            ':processed_by_datetime' => $processedDateTime !== '' ? str_replace('T', ' ', $processedDateTime) : null,
+            ':processed_by_datetime' => $processedDateTimeFormatted,
             ':reviewed_by_signature_path' => $reviewedSigPath,
-            ':reviewed_by_datetime' => $reviewedDateTime !== '' ? str_replace('T', ' ', $reviewedDateTime) : null,
-        ]);
+            ':reviewed_by_datetime' => $reviewedDateTimeFormatted,
+        ));
     }
-
-    $pdo->commit();
-} catch (Throwable $e) {
+    
+    // If everything worked, commit the transaction
+    if ($pdo->inTransaction()) {
+        $pdo->commit();
+    }
+    
+} catch (Exception $e) {
+    // If something went wrong, undo all changes
     if (isset($pdo) && $pdo instanceof PDO && $pdo->inTransaction()) {
         $pdo->rollBack();
     }
-
-    $isLocal = isset($_SERVER['SERVER_NAME']) && ($_SERVER['SERVER_NAME'] === 'localhost' || $_SERVER['SERVER_NAME'] === '127.0.0.1');
+    
+    // Check if we're on localhost (for debugging)
+    $isLocal = false;
+    if (isset($_SERVER['SERVER_NAME'])) {
+        if ($_SERVER['SERVER_NAME'] === 'localhost' || $_SERVER['SERVER_NAME'] === '127.0.0.1') {
+            $isLocal = true;
+        }
+    }
+    
+    // Log the error
     error_log('E1PersonalRecord submit.php error: ' . $e->getMessage());
     error_log($e->getTraceAsString());
-
+    
+    // Show error page
     http_response_code(500);
-
+    
     echo '<!DOCTYPE html>';
     echo '<html lang="en">';
     echo '<head>';
@@ -413,19 +474,22 @@ try {
     echo '<div class="card">';
     echo '<div class="title">Server Error</div>';
     echo '<div>Unable to save your form. Please try again.</div>';
+    // Show debug info only on localhost
     if ($isLocal) {
         echo '<div style="margin-top:10px;background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:6px;padding:10px 12px;">';
         echo '<div style="font-weight:700;margin-bottom:6px;">Debug (local only)</div>';
         echo '<div>' . htmlspecialchars($e->getMessage()) . '</div>';
         echo '</div>';
     }
-    echo '<a class="btn" href="index.php">Back to form</a>';
+    echo '<a class="btn" href="../index.php">Back to form</a>';
     echo '</div>';
     echo '</body>';
     echo '</html>';
     exit;
 }
 
+// If we get here, everything was successful
+// Show success page
 echo '<!DOCTYPE html>';
 echo '<html lang="en">';
 echo '<head>';
@@ -450,3 +514,5 @@ echo '<div class="row" style="margin-top:12px;">(Files are saved under uploads/ 
 echo '</div>';
 echo '</body>';
 echo '</html>';
+
+?>

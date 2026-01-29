@@ -19,7 +19,7 @@
     </section>
 
     <main class="container-center">
-        <form class="form" id="e1Form" autocomplete="on" novalidate method="post" action="submit.php" enctype="multipart/form-data">
+        <form class="form" id="e1Form" autocomplete="on" novalidate method="post" action="backend/submit.php" enctype="multipart/form-data">
             <div class="form-errors is-hidden" id="formErrors"></div>
 
             <section class="part1">
