@@ -825,3 +825,21 @@
          display: none;
      }
  }
+
+
+ .person_table {
+     width: 100%;
+     border-collapse: collapse;
+     background: var(--card);
+     border: 1px solid var(--border);
+     border-radius: var(--radius);
+     box-shadow: var(--shadow);
+     overflow: hidden;
+ }
+    .person_table th{
+        background: var(--primary);
+        color: #fff;
+        text-align: left;
+        padding: 12px 16px;
+        font-size: 14px;
+    }

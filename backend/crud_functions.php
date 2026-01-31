@@ -164,7 +164,29 @@ function read_all_persons()
     // Return all results as an array
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
+function getAddress($person_id) {
+    // Get database connection
+    $pdo = db();
 
+    // Prepare SQL to get home address for the given person ID
+    $stmt = $pdo->prepare(
+        'SELECT address_line, zip_code
+         FROM person_home_addresses
+         WHERE person_id = :person_id LIMIT 1'
+    );
+    $stmt->execute(array(':person_id' => $person_id));
+    
+    // Fetch and return the address
+    return $stmt->fetch(PDO::FETCH_ASSOC);
+
+}
+function calculate_age($date_of_birth) {
+    $dob = new DateTime($date_of_birth);
+    $today = new DateTime();
+    $age = $today->diff($dob)->y;
+    return $age;
+
+}
 // Function to update a person record
 function update_person($id, $data)
 {

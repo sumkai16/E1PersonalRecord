@@ -1,13 +1,5 @@
 <?php
 
-// This file connects to the database
-// Database connection settings for XAMPP
-// Usually the default settings are:
-// - host: localhost
-// - user: root  
-// - password: (empty)
-// - database: e1_personal_record_db
-
 // Function to get database connection
 function db()
 {
@@ -18,11 +10,8 @@ function db()
     $pass = '';
     $charset = 'utf8mb4';
     
-    // Create connection string
     $dsn = "mysql:host=$host;dbname=$dbName;charset=$charset";
     
-    // Create PDO connection
-    // PDO is a PHP class for connecting to databases
     $pdo = new PDO($dsn, $user, $pass);
     
     // Set error mode to throw exceptions (so we can catch errors)

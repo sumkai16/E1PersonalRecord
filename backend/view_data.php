@@ -86,7 +86,10 @@ try {
                 <tr>
                     <th>ID</th>
                     <th>Full Name</th>
-                    <th>Actions</th>
+                    <th>Address</th>
+                    <th>Date of Birth</th>
+                    <th>Age</th>
+
                 </tr>
             </thead>
             <tbody>
@@ -94,22 +97,19 @@ try {
                     <tr>
                         <td><?php echo htmlspecialchars((string)$person['id']); ?></td>
                         <td><?php echo htmlspecialchars($person['first_name'] . ' ' . $person['middle_name'] . ' ' . $person['last_name']); ?></td>
-                        
-                        <td class="actions">
-                            <a href="edit_person.php?id=<?php echo htmlspecialchars((string)$person['id']); ?>" style="background: #007bff; color: white; padding: 5px 10px; border-radius: 3px; text-decoration: none;">Edit</a>
-                            <form method="post" action="delete_person.php" style="display:inline;">
-                                <input type="hidden" name="id" value="<?php echo htmlspecialchars((string)$person['id']); ?>">
-                                <button type="submit" onclick="return confirm('Are you sure you want to delete this person?')" style="background: #dc3545; color: white; padding: 5px 10px; border-radius: 3px; border: none; cursor: pointer;">Delete</button>
-                            </form>
-                        </td>
+                        <td><?php echo htmlspecialchars(getAddress($person['id'])['address_line']); ?></td>
+                        <td><?php echo htmlspecialchars($person['date_of_birth']); ?></td>
+                        <td><?php echo htmlspecialchars(calculate_age($person['date_of_birth'])); ?></td>
+                       
                     </tr>
                 <?php endforeach; ?>
             </tbody>
         </table>
         <div class="bottom-btn" style="margin-top: 20px; display: flex; justify-content: space-between;">
-            <a href="view_data.php?id=<?php echo htmlspecialchars((string)$person['id']); ?>" style="background: #28a745; color: white;  padding: 10px 20px; border-radius: 3px; text-decoration: none;">View Information</a>
-             <p><a href="../index.php" style="position: relative; background: #28a745; color: white; padding: 10px 20px; border-radius: 5px; text-decoration: none; top: 20px;">Back to form</a></p>
+            <a href="view_persons.php?id=<?php echo htmlspecialchars((string)$person['id']); ?>" style="background: #28a745; color: white;  padding: 10px 20px; border-radius: 3px; text-decoration: none;">Back to list</a>
+            <a href="../index.php" style="background: #28a745; color: white; padding: 10px 20px; border-radius: 5px; text-decoration: none;">Back to form</a>
         </div>
         
+    </div>
 </body>
 </html>

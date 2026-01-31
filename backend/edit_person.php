@@ -571,7 +571,7 @@ $sss  = fetch_person_section('person_sss_processing', (int)$personId);
 
             <div class="form-actions">
                 <button class="submit-btn" type="submit">Update</button>
-                <a href="view_persons.php">Cancel</a>
+                <a href="view_persons.php" style="margin-left: 10px; background: #ff0000; padding: 10px 20px; border-radius: 5px; text-decoration: none; color: #ffffff;">Cancel</a>
             </div>
         </form>
     </main>
